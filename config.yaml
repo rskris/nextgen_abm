@@ -1,0 +1,85 @@
+# NextGen ABM Santa Barbara - Master Configuration
+# All parameters percolate downstream to spatial, population, household,
+# traffic LTM, equilibrium, calibration, and scenario modules.
+
+spatial:
+  min_lon: -120.65
+  min_lat: 34.35
+  max_lon: -119.45
+  max_lat: 35.15
+  s3_bucket: "overturemaps-us-west-2"
+  overture_release: "2024-08-20.0"
+  cache_dir: "data/cache"
+  elevation_source: "usgs_3dep"
+
+population:
+  county_fips: "06083"
+  pumas:
+    - "08301"
+    - "08302"
+  base_year: 2024
+  simulation_years: 5
+  ucsb_target_enrollment: 26500
+  sample_fraction: 1.0
+
+household:
+  ev_battery_capacity_kwh: 75.0
+  min_soc_reserve: 0.15
+  home_charger_kw: 7.2
+  work_charger_kw: 11.0
+  dcfc_charger_kw: 150.0
+  joint_meal_reward: 5.0
+  escort_penalty: 1.5
+
+solver:
+  solver_name: "highs"
+  time_step_minutes: 15
+  time_horizon_hours: 24
+  time_limit_seconds: 10.0
+  mip_gap: 0.01
+  vot_car: 20.0
+  vot_transit: 12.0
+  vot_bike: 15.0
+  vot_walk: 18.0
+  late_penalty_hourly: 40.0
+
+ltm:
+  time_step_seconds: 60.0
+  horizon_hours: 24.0
+  v_free_freeway_kmh: 105.0
+  v_free_arterial_kmh: 55.0
+  v_free_bike_kmh: 20.0
+  wave_speed_kmh: 20.0
+  jam_density_veh_km: 120.0
+  corridor_capacity_freeway_vph: 2000.0
+  corridor_capacity_arterial_vph: 800.0
+  bike_path_capacity_bph: 1500.0
+  ev_base_consumption_kwh_per_km: 0.18
+  elevation_penalty_kwh_per_meter: 0.0003
+
+equilibrium:
+  max_iterations: 5
+  replan_fraction: 0.15
+  plan_memory_size: 4
+  logit_beta: 1.0
+  convergence_tolerance_rel_gap: 0.02
+
+calibration:
+  max_iterations: 10
+  spsa_a: 0.1
+  spsa_c: 0.05
+  pems_stations:
+    - "US101_Salinas"
+    - "US101_Carrillo"
+    - "US101_Fairview"
+    - "US101_Storke"
+    - "US101_Carpinteria"
+  target_geh: 5.0
+
+scenario:
+  active_scenario: "baseline"
+  us101_toll_dollars: 0.0
+  surfliner_hourly: false
+  ucsb_staggered_classes: false
+  north_south_remote_pct: 0.0
+  ev_tou_load_shift: false
