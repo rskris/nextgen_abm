@@ -94,7 +94,7 @@ flowchart TD
    - `PopulationConfig`: Sample rate $\sigma \in (0, 1]$, PUMA codes (`08301`, `08302`), base year (2024), and forecast years.
    - `SolverConfig`: Continuous time discretization ($\Delta t = 15$ min), time limit (10s), solver threads, and behavioral parameters (Value of Time for car, transit, bike, walk).
    - `LTMConfig`: Time step ($\Delta t_{sim} = 60$s), 24h simulation horizon (86,400s), corridor capacities (freeway: 2,000 veh/hr/lane; arterial: 900 veh/hr/lane), jam density (120 veh/km/lane).
-   - `EquilibriumConfig`: Maximum iterations, replanning fraction ($0.15$), memory pool size ($4$ plans), multinomial logit scale $\beta = 1.0$, relative gap tolerance ($0.01$).
+   - `EquilibriumConfig`: Maximum iterations, replanning fraction (0.15), memory pool size (4 plans), multinomial logit scale $\beta = 1.0$, relative gap tolerance (0.01).
    - `CalibrationConfig`: Target Caltrans PeMS detector counts, CHTS duration benchmarks, perturbation parameters ($a, c, \alpha, \gamma$).
 3. **Automated Live Data Sync Pipeline (`DataSyncManager`)**:
    - Downloads remote GeoParquet from Overture Maps AWS S3 bucket using DuckDB.
@@ -153,13 +153,23 @@ WHERE bbox.xmin >= -120.65 AND bbox.xmax <= -119.45
 
 #### B. Parcel Building Capacity Model
 Determines residential dwelling unit capacity and employment capacity for each building:
-$$\text{Gross Floor Area (GFA)} = \text{Footprint Area} \times \max(1, \text{num\_floors})$$
-$$\text{Residential Capacity (units)} = \left\lfloor \frac{\text{GFA} \times \phi_{\text{residential}}}{\text{SqM per Unit}} \right\rfloor$$
-$$\text{Commercial Capacity (jobs)} = \left\lfloor \frac{\text{GFA} \times \phi_{\text{commercial}}}{\text{SqM per Worker}} \right\rfloor$$
+
+$$
+\text{Gross Floor Area (GFA)} = \text{Footprint Area} \times \max(1, \text{num\_floors})
+$$
+
+$$
+\text{Residential Capacity (units)} = \left\lfloor \frac{\text{GFA} \times \phi_{\text{residential}}}{\text{SqM per Unit}} \right\rfloor
+$$
+
+$$
+\text{Commercial Capacity (jobs)} = \left\lfloor \frac{\text{GFA} \times \phi_{\text{commercial}}}{\text{SqM per Worker}} \right\rfloor
+$$
+
 - Santa Barbara Specific Densities:
-  - Single Family Suburban (Goleta, Montecito): $180\text{ m}^2 / \text{unit}$.
-  - Isla Vista Student Apartments: $30\text{ m}^2 / \text{resident}$ (reflecting high student room occupancy).
-  - Commercial Tech Corridor (Goleta Cabrillo Business Park): $35\text{ m}^2 / \text{worker}$.
+  - Single Family Suburban (Goleta, Montecito): 180 m²/unit.
+  - Isla Vista Student Apartments: 30 m²/resident (reflecting high student room occupancy).
+  - Commercial Tech Corridor (Goleta Cabrillo Business Park): 35 m²/worker.
 
 #### C. POI Temporal Windows & Activity Opportunities
 Extracts POIs and classifies them into standardized activity categories:
@@ -171,17 +181,31 @@ Extracts POIs and classifies them into standardized activity categories:
 #### D. Multi-Scale Router & USGS 3DEP Elevation Physics
 Routes trips across auto, transit, bike, and walk modes. Incorporates terrain slope gradient $g = \frac{\Delta z}{d_{\text{horizontal}}}$:
 - **Active Mode Walking Speed** (Tobler's Hiking Function modification):
-  $$v_{\text{walk}}(g) = v_0 \cdot \exp\left(-3.5 \cdot |g + 0.05|\right)$$
+
+  $$
+  v_{\text{walk}}(g) = v_0 \cdot \exp\left(-3.5 \cdot |g + 0.05|\right)
+  $$
+
   where $v_0 = 4.8\text{ km/h}$.
 - **Bicycle Speed on Grades**:
-  $$v_{\text{bike}}(g) = \begin{cases}
+
+  $$
+  v_{\text{bike}}(g) = \begin{cases}
   \max\left(6.0, v_{\text{bike}, 0} - 45.0 \cdot g\right) & \text{if } g > 0 \text{ (uphill)} \\
   \min\left(35.0, v_{\text{bike}, 0} + 25.0 \cdot |g|\right) & \text{if } g \le 0 \text{ (downhill)}
-  \end{cases}$$
+  \end{cases}
+  $$
+
 - **EV Powertrain Energy Draw Model**:
   Considers aerodynamic drag, rolling resistance, gravitational potential work, and auxiliary heating/cooling:
-  $$P_{\text{wheel}}(t) = m g_{\text{gravity}} C_{rr} v(t) + \frac{1}{2} \rho C_d A v(t)^3 + m g_{\text{gravity}} g v(t) + m a(t) v(t)$$
-  $$E_{\text{EV}} = \int \left[ \frac{\max(0, P_{\text{wheel}})}{\eta_{\text{motor}}} + \eta_{\text{regen}} \min(0, P_{\text{wheel}}) + P_{\text{HVAC}} \right] dt$$
+
+  $$
+  P_{\text{wheel}}(t) = m g_{\text{gravity}} C_{rr} v(t) + \frac{1}{2} \rho C_d A v(t)^3 + m g_{\text{gravity}} g v(t) + m a(t) v(t)
+  $$
+
+  $$
+  E_{\text{EV}} = \int \left[ \frac{\max(0, P_{\text{wheel}})}{\eta_{\text{motor}}} + \eta_{\text{regen}} \min(0, P_{\text{wheel}}) + P_{\text{HVAC}} \right] dt
+  $$
 
 #### E. Hierarchical Multi-Modal Network Graph
 Maintains a 21-node, 42-directional-link regional graph capturing:
@@ -241,26 +265,45 @@ Extracts Person and Household Microdata Samples for Santa Barbara County:
 - **PUMA 08301**: North Santa Barbara County (Santa Maria, Lompoc, Orcutt, Guadalupe).
 - **PUMA 08302**: South Santa Barbara County (Santa Barbara, Goleta, Isla Vista, Carpinteria, Montecito).
 Synthesizes households matching joint Census Block Group marginal distributions:
-$$\min_w \sum_{i} w_i \ln\left(\frac{w_i}{q_i}\right) \quad \text{s.t.} \quad \sum_{i} w_i A_{ik} = M_k \quad \forall k$$
+
+$$
+\min_w \sum_{i} w_i \ln\left(\frac{w_i}{q_i}\right) \quad \text{s.t.} \quad \sum_{i} w_i A_{ik} = M_k \quad \forall k
+$$
+
 where $w_i$ is the synthetic weight, $q_i$ is the initial sample weight, $A_{ik}$ is the attribute matrix, and $M_k$ are Census summary control totals.
 
 #### B. LEHD LODES Workplace Anchoring
 Anchors each synthetic worker $p$ residing at residential parcel $h$ to workplace building $w$:
-$$P(w \mid h) = \frac{E_w \cdot \exp\left(-\gamma \cdot d(h, w)\right) \cdot \mathbb{I}(\text{Industry Match})}{\sum_{w'} E_{w'} \cdot \exp\left(-\gamma \cdot d(h, w')\right) \cdot \mathbb{I}(\text{Industry Match})}$$
+
+$$
+P(w \mid h) = \frac{E_w \cdot \exp\left(-\gamma \cdot d(h, w)\right) \cdot \mathbb{I}(\text{Industry Match})}{\sum_{w'} E_{w'} \cdot \exp\left(-\gamma \cdot d(h, w')\right) \cdot \mathbb{I}(\text{Industry Match})}
+$$
+
 where $E_w$ is the employment capacity of building $w$, and $d(h, w)$ is the network travel distance.
 
 #### C. Persistent Multi-Year Life-History Engine (`LifeHistoryEngine`)
 Maintains biographical continuity across multiple simulation years using a Bayesian Prior-Update hazard framework:
 1. **Age Transition**: $age_{t+1} = age_t + 1$.
 2. **Student Graduation**:
-   $$P(\text{Graduation} \mid \text{Undergrad Senior}) = 0.88, \quad P(\text{Graduation} \mid \text{Master's}) = 0.50$$
-   Upon graduation: Agent transitions to job seeker; $65\%$ leave the region, $35\%$ obtain local employment (Goleta tech / SB).
+
+   $$
+   P(\text{Graduation} \mid \text{Undergrad Senior}) = 0.88, \quad P(\text{Graduation} \mid \text{Master's}) = 0.50
+   $$
+
+   Upon graduation: Agent transitions to job seeker; 65% leave the region, 35% obtain local employment (Goleta tech / SB).
 3. **Job Mobility**:
-   $$P(\text{Job Change}) = h_0 \cdot \exp\left(\beta_1 \cdot \text{tenure} + \beta_2 \cdot \text{telework\_dissatisfaction}\right)$$
+
+   $$
+   P(\text{Job Change}) = h_0 \cdot \exp\left(\beta_1 \cdot \text{tenure} + \beta_2 \cdot \text{telework\_dissatisfaction}\right)
+   $$
+
 4. **Residential Relocation**:
    Evaluates housing tenure, income changes, and marriage/children transitions.
 5. **Vehicle Fleet Evolution & EV Adoption**:
-   $$P(\text{EV Adoption}) = \frac{1}{1 + \exp\left(-(\alpha_0 + \alpha_1 \cdot \text{Income} + \alpha_2 \cdot \text{DetachedHome} - \alpha_3 \cdot \text{EV\_Price})\right)}$$
+
+   $$
+   P(\text{EV Adoption}) = \frac{1}{1 + \exp\left(-(\alpha_0 + \alpha_1 \cdot \text{Income} + \alpha_2 \cdot \text{DetachedHome} - \alpha_3 \cdot \text{EV\_Price})\right)}
+   $$
 
 #### D. Dedicated UCSB & Isla Vista Sub-Model (`UCSBSubModel`)
 Accurately replicates the unique demographic structure of the University of California, Santa Barbara:
@@ -274,8 +317,8 @@ Accurately replicates the unique demographic structure of the University of Cali
   - Class bell schedule: 08:00, 09:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:30.
   - **10-Minute Inter-Class Micro-Peaks**: Simulates intense bike and pedestrian surges through the Pardall Tunnel and Campus Roundabouts between 10 minutes before the hour and the hour.
 - **Mode Choice Constraints**:
-  - Distance $< 2.0$ miles from campus: Auto driving prohibited; mode set restricted to `{bike, walk, MTD bus}`.
-  - Free MTD Bus Access: Model sets transit fare to $\$0.00$ for all valid UCSB student IDs (contracted through UCSB student transit fee).
+  - Distance under 2.0 miles from campus: Auto driving prohibited; mode set restricted to `{bike, walk, MTD bus}`.
+  - Free MTD Bus Access: Model sets transit fare to \$0.00 for all valid UCSB student IDs (contracted through UCSB student transit fee).
 
 ---
 
@@ -290,7 +333,11 @@ Accurately replicates the unique demographic structure of the University of Cali
 
 #### A. Space-Time Prism Opportunity Pruning
 To prevent the MILP from evaluating millions of combinatorial spatial opportunities, candidate destinations $k$ between fixed anchor activities $i$ (e.g., Home) and $j$ (e.g., Work) are pruned using ellipsoidal space-time prisms:
-$$t_{\text{travel}}(x_i, x_k, m) + t_{\text{min\_duration}}(k) + t_{\text{travel}}(x_k, x_j, m) \le t_j^{\text{latest\_start}} - t_i^{\text{earliest\_end}}$$
+
+$$
+t_{\text{travel}}(x_i, x_k, m) + t_{\text{min\_duration}}(k) + t_{\text{travel}}(x_k, x_j, m) \le t_j^{\text{latest\_start}} - t_i^{\text{earliest\_end}}
+$$
+
 Locations outside this bounding ellipse are mathematically unreachable and are stripped before MILP matrix assembly.
 
 ```mermaid
@@ -319,26 +366,56 @@ Formulates the complete daily life schedule as a continuous mathematical optimiz
 - $x_{ijm} \in \{0, 1\}$: Binary variable = 1 if mode $m \in \{\text{walk, bike, auto, transit}\}$ is chosen for travel leg $(i \to j)$.
 
 ##### Objective Function:
-$$\max \sum_{i \in \mathcal{A}} \left[ U_i(\Delta_i) + \sum_{k \in \mathcal{K}_i} y_{ik} \cdot \beta_k^{\text{attract}} \right] - \sum_{(i, j) \in \mathcal{L}} \sum_{m \in \mathcal{M}} x_{ijm} \cdot \left( \beta_m^{\text{cost}} \cdot C_{ijm} + \beta_m^{\text{time}} \cdot T_{ijm} \right) + \sum \epsilon_{\text{shock}}$$
+
+$$
+\max \sum_{i \in \mathcal{A}} \left[ U_i(\Delta_i) + \sum_{k \in \mathcal{K}_i} y_{ik} \cdot \beta_k^{\text{attract}} \right] - \sum_{(i, j) \in \mathcal{L}} \sum_{m \in \mathcal{M}} x_{ijm} \cdot \left( \beta_m^{\text{cost}} \cdot C_{ijm} + \beta_m^{\text{time}} \cdot T_{ijm} \right) + \sum \epsilon_{\text{shock}}
+$$
+
 where $U_i(\Delta_i) = \beta_i^{\text{dur}} \cdot \Delta_i - \beta_i^{\text{early}} \max(0, t_i^{\text{target\_start}} - t_i^{\text{start}}) - \beta_i^{\text{late}} \max(0, t_i^{\text{start}} - t_i^{\text{target\_start}})$.
 
 ##### Constraints:
 1. **Duration Definition**:
-   $$t_i^{\text{end}} - t_i^{\text{start}} = \Delta_i \quad \forall i \in \mathcal{A}$$
+
+   $$
+   t_i^{\text{end}} - t_i^{\text{start}} = \Delta_i \quad \forall i \in \mathcal{A}
+   $$
+
 2. **Chronological Sequencing & Travel Time Compatibility**:
-   $$t_j^{\text{start}} \ge t_i^{\text{end}} + \sum_{m \in \mathcal{M}} x_{ijm} \cdot T_{ijm} \quad \forall (i, j) \in \mathcal{L}$$
+
+   $$
+   t_j^{\text{start}} \ge t_i^{\text{end}} + \sum_{m \in \mathcal{M}} x_{ijm} \cdot T_{ijm} \quad \forall (i, j) \in \mathcal{L}
+   $$
+
 3. **24-Hour Day Conservation**:
-   $$t_0^{\text{start}} = 0.0, \quad t_{N}^{\text{end}} = 24.0$$
+
+   $$
+   t_0^{\text{start}} = 0.0, \quad t_{N}^{\text{end}} = 24.0
+   $$
+
 4. **Opening & Operating Windows**:
-   $$t_i^{\text{start}} \ge \text{EarliestOpen}_i, \quad t_i^{\text{end}} \le \text{LatestClose}_i \quad \forall i \in \mathcal{A}$$
+
+   $$
+   t_i^{\text{start}} \ge \text{EarliestOpen}_i, \quad t_i^{\text{end}} \le \text{LatestClose}_i \quad \forall i \in \mathcal{A}
+   $$
+
 5. **Location Exclusivity**:
-   $$\sum_{k \in \mathcal{K}_i} y_{ik} = 1 \quad \forall i \in \mathcal{A}$$
+
+   $$
+   \sum_{k \in \mathcal{K}_i} y_{ik} = 1 \quad \forall i \in \mathcal{A}
+   $$
+
 6. **Mode Exclusivity**:
-   $$\sum_{m \in \mathcal{M}} x_{ijm} = 1 \quad \forall (i, j) \in \mathcal{L}$$
+
+   $$
+   \sum_{m \in \mathcal{M}} x_{ijm} = 1 \quad \forall (i, j) \in \mathcal{L}
+   $$
 
 #### C. Metropolis-Hastings MCMC Choice Sampler
 To avoid deterministic identical behavior among identical demographic agents, the scheduler incorporates an MCMC sampler exploring schedule space with acceptance probability:
-$$\alpha(\mathbf{s} \to \mathbf{s}') = \min\left(1, \frac{P(\mathbf{s}')}{P(\mathbf{s})}\right) = \min\left(1, \exp\left(\frac{U(\mathbf{s}') - U(\mathbf{s})}{k_B T}\right)\right)$$
+
+$$
+\alpha(\mathbf{s} \to \mathbf{s}') = \min\left(1, \frac{P(\mathbf{s}')}{P(\mathbf{s})}\right) = \min\left(1, \exp\left(\frac{U(\mathbf{s}') - U(\mathbf{s})}{k_B T}\right)\right)
+$$
 
 ---
 
@@ -375,22 +452,38 @@ stateDiagram-v2
 
 ##### Mutual Exclusion Constraint:
 Let $z_{p, v, i, j} \in \{0, 1\}$ indicate that person $p$ drives vehicle $v$ on leg $(i \to j)$.
-$$\sum_{p \in \mathcal{P}} \sum_{(i, j) \in \mathcal{L}_p(t)} z_{p, v, i, j} \le 1 \quad \forall v \in \mathcal{V}, \quad \forall t \in [0, 24]$$
+
+$$
+\sum_{p \in \mathcal{P}} \sum_{(i, j) \in \mathcal{L}_p(t)} z_{p, v, i, j} \le 1 \quad \forall v \in \mathcal{V}, \quad \forall t \in [0, 24]
+$$
+
 This guarantees that **no two family members can operate the same vehicle simultaneously**.
 
 #### B. School Escort Synchronization
 Models dependent children who cannot travel unaccompanied. An adult household driver must escort the child to school:
 1. **Spatial Insertion**: The child's school drop-off leg is inserted into the adult's morning commute: $\text{Home} \to \text{School} \to \text{Work}$.
 2. **Arrival Time Synchronization**:
-   $$|t_{\text{adult, arrive at school}} - t_{\text{child, arrive at school}}| \le \epsilon_{\text{escort}} \quad (\epsilon \le 5\text{ minutes})$$
+
+   $$
+   |t_{\text{adult, arrive at school}} - t_{\text{child, arrive at school}}| \le \epsilon_{\text{escort}} \quad (\epsilon \le 5\text{ minutes})
+   $$
+
 3. **Escort Utility Penalty**: Incorporates detour impedance and child safety preferences into the joint household objective.
 
 #### C. EV State-of-Charge (SoC) & Smart Charging Window
 Tracks continuous battery state-of-charge $SoC(t) \in [0.15, 1.00]$:
-$$SoC(t_{i}^{\text{end}}) = SoC(t_i^{\text{start}}) - \frac{E_{\text{draw}}(i \to j)}{\text{Battery Capacity (kWh)}}$$
+
+$$
+SoC(t_{i}^{\text{end}}) = SoC(t_i^{\text{start}}) - \frac{E_{\text{draw}}(i \to j)}{\text{Battery Capacity (kWh)}}
+$$
+
 At home or workplace equipped with Level-2 chargers:
-$$SoC(t) = \min\left(1.0, SoC(t_0) + \frac{P_{\text{charger}} \cdot \Delta t_{\text{dwell}} \cdot \eta_{\text{charge}}}{\text{Battery Capacity}}\right)$$
-Restricts charging to off-peak Southern California Edison (SCE) TOU-D-PRIME time windows ($00:00 - 06:00$ and $09:00 - 16:00$).
+
+$$
+SoC(t) = \min\left(1.0, SoC(t_0) + \frac{P_{\text{charger}} \cdot \Delta t_{\text{dwell}} \cdot \eta_{\text{charge}}}{\text{Battery Capacity}}\right)
+$$
+
+Restricts charging to off-peak Southern California Edison (SCE) TOU-D-PRIME time windows (00:00 – 06:00 and 09:00 – 16:00).
 
 #### D. Multi-Core Parallel Household Solver (`parallel_milp.py`)
 Because household optimization problems are mutually independent across households within an iteration, solving is partitioned via Python `concurrent.futures.ProcessPoolExecutor`:
@@ -430,12 +523,24 @@ q_max ----  /      \
 #### B. Cumulative Flow Curves & Boundary Conditions
 At each simulation discrete time step $t$ ($\Delta t = 60\text{s}$):
 1. **Sending Flow $S_a(t)$** (Maximum vehicles wanting to exit downstream):
-   $$S_a(t) = \min\left( q_{max, a} \Delta t, \; N_{up, a}\left(t - \frac{L_a}{v_{f, a}}\right) - N_{down, a}(t) \right)$$
+
+   $$
+   S_a(t) = \min\left( q_{max, a} \Delta t, \; N_{up, a}\left(t - \frac{L_a}{v_{f, a}}\right) - N_{down, a}(t) \right)
+   $$
+
 2. **Receiving Flow $R_a(t)$** (Maximum vehicles able to enter upstream without causing gridlock):
-   $$R_a(t) = \min\left( q_{max, a} \Delta t, \; N_{down, a}\left(t - \frac{L_a}{w_a}\right) + k_{jam, a} L_a - N_{up, a}(t) \right)$$
+
+   $$
+   R_a(t) = \min\left( q_{max, a} \Delta t, \; N_{down, a}\left(t - \frac{L_a}{w_a}\right) + k_{jam, a} L_a - N_{up, a}(t) \right)
+   $$
+
 3. **Link Boundary Flow Transfer**:
    The actual vehicle volume $G_{a, b}(t)$ transferred from link $a$ to downstream link $b$ is:
-   $$G_{a, b}(t) = \min\left( S_a(t) \cdot \alpha_{a, b}, \; R_b(t) \cdot \beta_{a, b} \right)$$
+
+   $$
+   G_{a, b}(t) = \min\left( S_a(t) \cdot \alpha_{a, b}, \; R_b(t) \cdot \beta_{a, b} \right)
+   $$
+
 4. **Queue Spillback**:
    When $S_a(t) > R_b(t)$, downstream capacity is constrained. Vehicles accumulate in link $a$, physical queues propagate upstream at wave velocity $w_a$, and shockwaves spill back onto feeder arterials.
 
@@ -469,11 +574,22 @@ sequenceDiagram
 ```
 
 - **Plan Scoring Function**:
-  $$\text{Score}_p = U_p^{\text{planned}} - \omega_{\text{delay}} \cdot \max(0, T^{\text{experienced}} - T^{\text{planned}}) - \omega_{\text{late}} \cdot \max(0, t_{\text{arrive}} - t_{\text{target}})$$
+
+  $$
+  \text{Score}_p = U_p^{\text{planned}} - \omega_{\text{delay}} \cdot \max(0, T^{\text{experienced}} - T^{\text{planned}}) - \omega_{\text{late}} \cdot \max(0, t_{\text{arrive}} - t_{\text{target}})
+  $$
+
 - **Multinomial Logit Selection**:
-  $$P(\text{plan } k) = \frac{\exp(\beta \cdot \text{Score}_k)}{\sum_{j=1}^{M} \exp(\beta \cdot \text{Score}_j)}$$
+
+  $$
+  P(\text{plan } k) = \frac{\exp(\beta \cdot \text{Score}_k)}{\sum_{j=1}^{M} \exp(\beta \cdot \text{Score}_j)}
+  $$
+
 - **Convergence Criterion**:
-  $$\text{Relative Gap}^{(k)} = \frac{\left| \text{VHT}^{(k)} - \text{VHT}^{(k-1)} \right|}{\text{VHT}^{(k)}} \le 0.01$$
+
+  $$
+  \text{Relative Gap}^{(k)} = \frac{\left| \text{VHT}^{(k)} - \text{VHT}^{(k-1)} \right|}{\text{VHT}^{(k)}} \le 0.01
+  $$
 
 ---
 
@@ -496,36 +612,58 @@ Freeway traffic counts on the US-101 corridor are validated against District 5 P
 5. `US101_Carpinteria` (South County Boundary)
 
 The **GEH statistic** (standard UK Design Manual for Roads and Bridges & FHWA metric) compares simulated hourly volumes $M$ against observed ground-truth counts $C$:
-$$GEH = \sqrt{\frac{2(M - C)^2}{M + C}}$$
+
+$$
+GEH = \sqrt{\frac{2(M - C)^2}{M + C}}
+$$
+
 - **Validation Criteria**:
   - $GEH < 5.0$: **Pass** (Simulated volume matches sensor within acceptable tolerance).
-  - $5.0 \le GEH \le 10.0$: **Fair** (Minor discrepancies; possible local ramp friction).
+  - $GEH \in [5.0, 10.0]$: **Fair** (Minor discrepancies; possible local ramp friction).
   - $GEH > 10.0$: **Unacceptable** (Requires capacity or demand recalibration).
   - **Global Target**: $\ge 85\%$ of corridor detector stations must achieve $GEH < 5.0$.
 
 #### B. Simultaneous Perturbation Stochastic Approximation (SPSA)
 Calibrates the high-dimensional parameter vector $\boldsymbol{\theta}$ (Value of Time, mode-specific constants, highway capacities) against multi-sensor field data:
-$$\boldsymbol{\theta} = \begin{bmatrix} \text{vot}_{\text{car}}, & \text{vot}_{\text{transit}}, & \text{vot}_{\text{bike}}, & C_{\text{freeway}}, & C_{\text{arterial}} \end{bmatrix}^T$$
+
+$$
+\boldsymbol{\theta} = \begin{bmatrix} \text{vot}_{\text{car}}, & \text{vot}_{\text{transit}}, & \text{vot}_{\text{bike}}, & C_{\text{freeway}}, & C_{\text{arterial}} \end{bmatrix}^T
+$$
 
 ##### Loss Function:
-$$L(\boldsymbol{\theta}) = \sum_{s \in \text{PeMS}} \left( GEH_s(\boldsymbol{\theta}) \right)^2 + \lambda_{\text{CHTS}} \sum_{a} \left( \frac{\bar{d}_{a}^{\text{sim}} - \bar{d}_{a}^{\text{CHTS}}}{\sigma_a} \right)^2$$
+
+$$
+L(\boldsymbol{\theta}) = \sum_{s \in \text{PeMS}} \left( GEH_s(\boldsymbol{\theta}) \right)^2 + \lambda_{\text{CHTS}} \sum_{a} \left( \frac{\bar{d}_{a}^{\text{sim}} - \bar{d}_{a}^{\text{CHTS}}}{\sigma_a} \right)^2
+$$
 
 ##### Simultaneous Perturbation Algorithm:
 1. Generate random Bernoulli perturbation vector $\boldsymbol{\Delta}_k \in \{-1, +1\}^p$.
 2. Formulate perturbed parameter vectors:
-   $$\boldsymbol{\theta}_k^{+} = \boldsymbol{\theta}_k + c_k \boldsymbol{\Delta}_k, \quad \boldsymbol{\theta}_k^{-} = \boldsymbol{\theta}_k - c_k \boldsymbol{\Delta}_k$$
+
+   $$
+   \boldsymbol{\theta}_k^{+} = \boldsymbol{\theta}_k + c_k \boldsymbol{\Delta}_k, \quad \boldsymbol{\theta}_k^{-} = \boldsymbol{\theta}_k - c_k \boldsymbol{\Delta}_k
+   $$
+
 3. Evaluate loss at both perturbed points: $L(\boldsymbol{\theta}_k^{+})$ and $L(\boldsymbol{\theta}_k^{-})$.
 4. Approximate simultaneous gradient vector $\hat{\mathbf{g}}_k$:
-   $$\hat{g}_{k, i} = \frac{L(\boldsymbol{\theta}_k^{+}) - L(\boldsymbol{\theta}_k^{-})}{2 c_k \Delta_{k, i}}$$
+
+   $$
+   \hat{g}_{k, i} = \frac{L(\boldsymbol{\theta}_k^{+}) - L(\boldsymbol{\theta}_k^{-})}{2 c_k \Delta_{k, i}}
+   $$
+
 5. Update parameters with gain sequences $a_k = \frac{a}{(A + k + 1)^\alpha}$ and $c_k = \frac{c}{(k + 1)^\gamma}$:
-   $$\boldsymbol{\theta}_{k+1} = \Pi_{\Theta} \left[ \boldsymbol{\theta}_k - a_k \hat{\mathbf{g}}_k \right]$$
+
+   $$
+   \boldsymbol{\theta}_{k+1} = \Pi_{\Theta} \left[ \boldsymbol{\theta}_k - a_k \hat{\mathbf{g}}_k \right]
+   $$
+
    where $\Pi_{\Theta}$ projects updated values onto admissible physical bounds.
 
 #### C. Interactive 3D GPU Dashboard (`dashboard.py`)
 Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 - **3D Line Arcs**: Color-coded by volume-over-capacity ($V/C$) ratio:
   - Green ($V/C < 0.60$): Free flow.
-  - Yellow ($0.60 \le V/C \le 0.85$): Moderate density.
+  - Yellow ($V/C \in [0.60, 0.85]$): Moderate density.
   - Red ($V/C > 0.85$): Congestion and physical queue spillback.
 - **Node Scatterplots**: Representing major Santa Barbara multi-modal hubs.
 - **EV Battery Trajectory Plots**: Integrated charts tracking fleet charging profiles over 24 hours.
@@ -540,13 +678,13 @@ Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 
 #### A. US-101 Peak Spreading & Telework Scenario
 - **Policy Question**: Can employer flexible scheduling and telework incentives flatten morning peak congestion between Carpinteria and Goleta without widening the highway?
-- **Implementation**: Shifting $40\%$ of South Coast knowledge workers from fixed 08:00 arrivals to a 2-hour flexible window (07:30 – 09:30).
+- **Implementation**: Shifting 40% of South Coast knowledge workers from fixed 08:00 arrivals to a 2-hour flexible window (07:30 – 09:30).
 - **Finding**: Flattens US-101 peak morning vehicle volume by **25.2%**, eliminating queue spillback onto coastal interchanges.
 
 #### B. Pacific Surfliner Clock-Face Regional Rail Scenario
 - **Policy Question**: What is the impact of converting the Amtrak Pacific Surfliner corridor to clock-face hourly regional rail headways (60 min vs. current 120 min)?
 - **Implementation**: Frequency elasticity model ($\epsilon_f = 0.55$) evaluating commute diversions from US-101 to rail between Ventura, Carpinteria, Santa Barbara, and Goleta.
-- **Finding**: Increases rail transit corridor share from $3.5\%$ to $10.3\%$, reduces 340 daily highway trips, and enables $28\%$ of diverted households to shed a second vehicle.
+- **Finding**: Increases rail transit corridor share from 3.5% to 10.3%, reduces 340 daily highway trips, and enables 28% of diverted households to shed a second vehicle.
 
 #### C. UCSB Staggered Class Scheduling Scenario
 - **Policy Question**: How can Isla Vista bicycle bottleneck congestion and pedestrian conflicts be mitigated during class changes?
@@ -561,7 +699,7 @@ Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 #### E. EV Grid Load Shifting & Solar Alignment Scenario
 - **Policy Question**: Can managed workplace Level-2 EV charging absorb mid-day rooftop solar generation and prevent overnight distribution transformer overloads?
 - **Implementation**: Evaluates workplace charging incentives shifting vehicle charging from evening peak (18:00 – 21:00) to solar hours (10:00 – 14:00).
-- **Finding**: Shifts $62\%$ of daily fleet EV charging energy to peak solar hours, reducing residential evening peak demand by $1.8\text{ MW}$.
+- **Finding**: Shifts 62% of daily fleet EV charging energy to peak solar hours, reducing residential evening peak demand by 1.8 MW.
 
 ---
 
@@ -581,13 +719,13 @@ Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 | $R_a(t)$ | Receiving capacity into link $a$ at time step $t$ | veh/step | Computed dynamically |
 | $N_{up, a}(t)$ | Cumulative entered vehicles at link $a$ upstream boundary | count | Monotonically non-decreasing |
 | $N_{down, a}(t)$ | Cumulative exited vehicles at link $a$ downstream boundary | count | Monotonically non-decreasing |
-| $\text{VOT}_{\text{car}}$ | Value of travel time for personal automobile | $\$ / \text{hour}$ | 22.50 |
-| $\text{VOT}_{\text{transit}}$ | Value of travel time for public transit | $\$ / \text{hour}$ | 12.00 |
-| $\text{VOT}_{\text{bike}}$ | Value of travel time for cycling | $\$ / \text{hour}$ | 15.00 |
-| $\text{VOT}_{\text{walk}}$ | Value of travel time for walking | $\$ / \text{hour}$ | 18.00 |
+| $\text{VOT}_{\text{car}}$ | Value of travel time for personal automobile | USD / hour | 22.50 |
+| $\text{VOT}_{\text{transit}}$ | Value of travel time for public transit | USD / hour | 12.00 |
+| $\text{VOT}_{\text{bike}}$ | Value of travel time for cycling | USD / hour | 15.00 |
+| $\text{VOT}_{\text{walk}}$ | Value of travel time for walking | USD / hour | 18.00 |
 | $\beta_{\text{escort}}$ | Disutility penalty for child escort coordination detour | utils | -8.50 |
-| $GEH$ | Geoffrey E. Havers statistic for traffic count validation | dimensionless | Target $< 5.0$ |
-| $SoC(t)$ | Battery State-of-Charge for electric vehicles | fraction | $[0.15, 1.00]$ |
+| $GEH$ | Geoffrey E. Havers statistic for traffic count validation | dimensionless | Target $GEH < 5.0$ |
+| $SoC(t)$ | Battery State-of-Charge for electric vehicles | fraction | 0.15 – 1.00 |
 
 ### 10.2 File Schema Reference
 
@@ -596,7 +734,7 @@ Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 - `household_id` (string): Household entity identifier.
 - `act_id` (string): Sequence identifier of the activity.
 - `act_type` (string): Activity category (`home_morning`, `work`, `school`, `grocery`, `leisure`, `home_night`).
-- `start_hour` (float64): Continuous start time in decimal hours ($0.0 \le t \le 24.0$).
+- `start_hour` (float64): Continuous start time in decimal hours ($t \in [0.0, 24.0]$).
 - `end_hour` (float64): Continuous end time in decimal hours.
 - `duration_hours` (float64): Activity dwell duration.
 - `chosen_location_id` (string): Building footprint identifier from Overture Maps.
@@ -607,7 +745,7 @@ Generates standalone WebGL visualization artifacts via PyDeck and Deck.gl:
 
 #### `outputs/network_corridor_metrics.csv`
 - `link_id` (string): Directional network link identifier.
-- `hour_bin` (int64): Hour of the day ($0 \le h \le 23$).
+- `hour_bin` (int64): Hour of the day ($h \in [0, 23]$).
 - `simulated_flow_vph` (float64): Total vehicular volume transferred across downstream boundary.
 - `avg_speed_mph` (float64): Space-mean speed experienced across link.
 - `density_vpm` (float64): Average vehicular density (vehicles per mile).
