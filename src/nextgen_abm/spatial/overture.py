@@ -57,13 +57,16 @@ class OvertureClient:
         db_path: str = ":memory:",
         cache_dir: Optional[Path] = None,
         release: str = DEFAULT_RELEASE,
+        s3_bucket: Optional[str] = None,
     ):
         self.db_path = db_path
         self.cache_dir = Path(cache_dir) if cache_dir else Path("data/overture_cache")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.release = release
+        self.s3_bucket = s3_bucket or "overturemaps-us-west-2"
         self.con = duckdb.connect(database=self.db_path)
         self._init_duckdb_extensions()
+
 
     def _init_duckdb_extensions(self):
         """Install and load required DuckDB extensions for remote GeoParquet."""
@@ -152,6 +155,17 @@ class OvertureClient:
         geometries = [wkt.loads(geom) if geom else None for geom in df["wkt_geom"]]
         gdf = gpd.GeoDataFrame(df.drop(columns=["wkt_geom"]), geometry=geometries, crs="EPSG:4326")
         return gdf
+
+    def query_buildings(self, bbox: BoundingBox = SANTA_BARBARA_BBOX, limit: Optional[int] = None) -> gpd.GeoDataFrame:
+        """Query and return building footprints as a GeoDataFrame."""
+        sql = self.build_building_query(bbox=bbox, limit=limit)
+        return self.query_to_geodataframe(sql)
+
+    def query_places(self, bbox: BoundingBox = SANTA_BARBARA_BBOX, limit: Optional[int] = None) -> gpd.GeoDataFrame:
+        """Query and return places/POIs as a GeoDataFrame."""
+        sql = self.build_places_query(bbox=bbox, limit=limit)
+        return self.query_to_geodataframe(sql)
+
 
     def create_mock_santa_barbara_fixtures(self) -> Dict[str, gpd.GeoDataFrame]:
         """Generate high-fidelity building and POI fixtures for local offline development/testing.

@@ -113,10 +113,27 @@ uv pip install -e ".[dev]"
 ```
 
 ### Running Tests
-Execute the full test suite (40 unit & integration tests pass in ~1.5s):
+Execute the full test suite (43 unit & integration tests pass in ~2s):
 ```bash
 pytest -v
 ```
+
+### Command-Line Interface (CLI)
+
+```bash
+# 1. Sync and cache Santa Barbara open data (Overture GeoParquet, Census PUMS, LEHD LODES, GTFS)
+nextgen-abm sync-data
+
+# 2. Run end-to-end parallel simulation (sample rate, iterations, and CPU workers)
+nextgen-abm run --sample 0.1 --iterations 3 --workers 12 --output-dir outputs
+
+# 3. Run automated SPSA calibration against Caltrans PeMS freeway detectors
+nextgen-abm calibrate --iterations 5
+
+# 4. Render interactive 3D PyDeck dashboard
+nextgen-abm dashboard --output-dir outputs
+```
+
 
 ### Python API Example: Joint Household Optimization & Traffic Simulation
 

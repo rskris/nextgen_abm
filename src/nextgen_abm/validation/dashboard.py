@@ -57,6 +57,15 @@ class DashboardRenderer:
         deck.to_html(str(out_path))
         return out_path
 
+    def render_flow_deck(
+        self,
+        flows_df: Optional[pd.DataFrame] = None,
+        filename: str = "dashboard.html"
+    ) -> Path:
+        """Alias for render_od_flow_map to render flow decks."""
+        return self.render_od_flow_map(od_flows=flows_df, filename=filename)
+
+
     def render_building_footprints_map(
         self,
         buildings_gdf: gpd.GeoDataFrame,

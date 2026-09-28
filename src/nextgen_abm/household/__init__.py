@@ -11,6 +11,7 @@ from .household_milp import (
     EscortSpec,
     HouseholdMILPResult,
 )
+from .parallel_milp import ParallelHouseholdSolver, HouseholdTask
 
 __all__ = [
     "HouseholdVehicleManager",
@@ -25,4 +26,6 @@ __all__ = [
     "JointActivitySpec",
     "EscortSpec",
     "HouseholdMILPResult",
+    "ParallelHouseholdSolver",
+    "HouseholdTask",
 ]
