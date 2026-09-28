@@ -33,7 +33,10 @@ class PopulationConfig(BaseModel):
     base_year: int = Field(default=2024, description="Base simulation year")
     simulation_years: int = Field(default=5, description="Multi-year dynamic life-history horizon")
     ucsb_target_enrollment: int = Field(default=26500, description="UCSB student enrollment target")
-    sample_fraction: float = Field(default=1.0, description="Sampling fraction for scaling runs")
+    sample_fraction: float = Field(
+        default=0.10,
+        description="Key driver scaling fraction for population runs (0.01=smoke test, 0.10=default sample, 1.0=full regional)"
+    )
 
 
 class HouseholdConfig(BaseModel):

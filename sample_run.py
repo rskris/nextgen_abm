@@ -58,6 +58,7 @@ def main() -> int:
     config_path = Path("config.yaml")
     cfg = MasterConfig.from_yaml(config_path) if config_path.exists() else get_config()
     print(f"  • County FIPS        : {cfg.population.county_fips} (Santa Barbara County)")
+    print(f"  • Population Sample  : {cfg.population.sample_fraction * 100:.1f}% (sample_fraction = {cfg.population.sample_fraction})")
     print(f"  • Target Bounding Box: [{cfg.spatial.min_lon}, {cfg.spatial.min_lat}] to [{cfg.spatial.max_lon}, {cfg.spatial.max_lat}]")
     print(f"  • Solver             : HiGHS (highspy) | Discretization: {cfg.solver.time_step_minutes} min")
     print(f"  • Traffic Meso Model : Link Transmission Model (LTM) Kinematic Wave")
@@ -175,8 +176,10 @@ def main() -> int:
     households.append(hh2)
     tasks.append(HouseholdTask(hh2_id, [s1, s2], []))
 
-    # Add scale cohort (replicating representative commuter & student households)
-    for i in range(18):
+    # Add scale cohort (replicating representative commuter & student households dynamically scaled by sample_fraction)
+    scale_factor = max(0.01, min(1.0, cfg.population.sample_fraction))
+    n_commuters = max(2, int(180 * scale_factor))
+    for i in range(n_commuters):
         hh_i_id = f"hh_commuter_{i:02d}"
         p_i_id = f"worker_{i:02d}"
         m_i = MemberAgenda(
@@ -232,12 +235,13 @@ def main() -> int:
     print("▶ Step 6: Validating Highway Volumes Against Caltrans PeMS Sensors...")
     calibrator = SPSACalibrator(network=network, config=cfg)
     last_metric = metrics[-1]
-    simulated_flow = last_metric.total_trips * 140.0
+    # Expand simulated sample flow to full regional corridor volume using sample scale factor
+    simulated_flow = (last_metric.total_trips / scale_factor) * 14.0
     geh_scores = {
         station: round(calibrator.compute_geh(simulated_flow, obs), 2)
         for station, obs in calibrator.PEMS_BENCHMARKS.items()
     }
-    print(f"  • Simulated US-101 Corridor Flow: {simulated_flow:,.0f} veh/hr")
+    print(f"  • Simulated US-101 Corridor Flow: {simulated_flow:,.0f} veh/hr (expanded by 1/{scale_factor:.2f})")
     for stn, g in geh_scores.items():
         status = "PASS (< 5.0)" if g < 5.0 else "FAIR"
         print(f"    - {stn:<20}: GEH = {g:<6.2f} [{status}]")

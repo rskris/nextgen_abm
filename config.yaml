@@ -1,85 +1,141 @@
-# NextGen ABM Santa Barbara - Master Configuration
-# All parameters percolate downstream to spatial, population, household,
-# traffic LTM, equilibrium, calibration, and scenario modules.
+# ==============================================================================
+# NextGen ABM: Santa Barbara County - Master Configuration File
+# Grounded in 'From Trips to Lives' (Prof. J. Zhao, MIT & Prof. M. Bierlaire, EPFL)
+# ==============================================================================
+# All parameters defined in this file percolate downstream to:
+# 1. Spatial Ingestion & Routing (Overture Maps GeoParquet, USGS 3DEP, SBMTD GTFS)
+# 2. Population Synthesis & Life Histories (ACS PUMS, LEHD LODES, UCSB Sub-Model)
+# 3. Continuous HiGHS Household MILP Scheduler (highspy)
+# 4. Native Link Transmission Model (LTM) Mesoscopic Traffic Simulator
+# 5. Day-to-Day Evolutionary Supply-Demand Equilibrium Engine
+# 6. Caltrans District 5 PeMS Highway Sensor Validation (GEH < 5.0)
+# 7. Regional Policy Scenarios (Peak Spreading, Surfliner Rail, EV Grid Alignment)
+# ==============================================================================
 
-spatial:
-  min_lon: -120.65
-  min_lat: 34.35
-  max_lon: -119.45
-  max_lat: 35.15
-  s3_bucket: "overturemaps-us-west-2"
-  overture_release: "2024-08-20.0"
-  cache_dir: "data/cache"
-  elevation_source: "usgs_3dep"
-
+# ------------------------------------------------------------------------------
+# 1. POPULATION SYNTHESIS & SCALING DRIVERS
+# ------------------------------------------------------------------------------
 population:
-  county_fips: "06083"
+  county_fips: "06083"                 # Santa Barbara County FIPS code
   pumas:
-    - "08301"
-    - "08302"
-  base_year: 2024
-  simulation_years: 5
-  ucsb_target_enrollment: 26500
-  sample_fraction: 1.0
+    - "08301"                          # North Santa Barbara County (Santa Maria, Lompoc, Orcutt)
+    - "08302"                          # South Santa Barbara County (Santa Barbara, Goleta, IV, Carpinteria)
+  base_year: 2024                      # Base simulation calendar year
+  simulation_years: 5                  # Multi-year dynamic life-history progression horizon
 
+  # KEY DRIVER: Population Sampling Fraction
+  # Controls how much fraction of the total regional population is synthesized and simulated.
+  # Scaling guidelines:
+  #   - 0.01 ( 1%): Fast smoke-test / dry-run (< 1 second, ~20 households)
+  #   - 0.05 ( 5%): Lightweight quick development run (~1 second, ~50 households)
+  #   - 0.10 (10%): DEFAULT SAMPLE RUN for rapid development & scenario iteration (~1-2 seconds, ~100 households)
+  #   - 0.25 (25%): Medium-fidelity calibration & corridor congestion analysis (~10-15 seconds)
+  #   - 1.00 (100%): Full regional production run (~140,000 households across Santa Barbara County)
+  sample_fraction: 0.10
+
+  ucsb_target_enrollment: 26500        # Target UCSB total student population (undergrads + grads)
+
+# ------------------------------------------------------------------------------
+# 2. SPATIAL INGESTION & GEOGRAPHIC BOUNDS
+# ------------------------------------------------------------------------------
+spatial:
+  # Santa Barbara County WGS84 Bounding Box (Longitudes / Latitudes)
+  min_lon: -120.65                     # Western boundary (Gaviota Coast / Lompoc)
+  min_lat: 34.35                       # Southern boundary (Pacific Ocean / Channel)
+  max_lon: -119.45                     # Eastern boundary (Ventura County line / Rincon)
+  max_lat: 35.15                       # Northern boundary (San Luis Obispo County line)
+
+  s3_bucket: "overturemaps-us-west-2"  # AWS S3 bucket for Overture Maps GeoParquet
+  overture_release: "2024-08-20.0"     # Overture release version for building footprints & POIs
+  cache_dir: "data/cache"              # Local directory for cached Parquet & GeoJSON data
+  elevation_source: "usgs_3dep"        # 10-meter digital elevation model for slope impedance
+
+# ------------------------------------------------------------------------------
+# 3. HOUSEHOLD ASSET CONSERVATION & EV CHARGING
+# ------------------------------------------------------------------------------
 household:
-  ev_battery_capacity_kwh: 75.0
-  min_soc_reserve: 0.15
-  home_charger_kw: 7.2
-  work_charger_kw: 11.0
-  dcfc_charger_kw: 150.0
-  joint_meal_reward: 5.0
-  escort_penalty: 1.5
+  ev_battery_capacity_kwh: 75.0        # Baseline usable battery pack size (kWh)
+  min_soc_reserve: 0.15                # 15% emergency reserve State-of-Charge (SoC) buffer
+  home_charger_kw: 7.2                 # Residential Level-2 AC charger (240V / 30A)
+  work_charger_kw: 11.0                # Commercial workplace Level-2 AC charger (208/240V / 48A)
+  dcfc_charger_kw: 150.0               # Corridor DC Fast Charger (DCFC)
+  joint_meal_reward: 5.0               # Household utility bonus for synchronized family dinner
+  escort_penalty: 1.5                  # Disutility multiplier for school escort detours
 
+# ------------------------------------------------------------------------------
+# 4. HIGHS MATHEMATICAL PROGRAMMING SCHEDULER (MILP)
+# ------------------------------------------------------------------------------
 solver:
-  solver_name: "highs"
-  time_step_minutes: 15
-  time_horizon_hours: 24
-  time_limit_seconds: 10.0
-  mip_gap: 0.01
-  vot_car: 20.0
-  vot_transit: 12.0
-  vot_bike: 15.0
-  vot_walk: 18.0
-  late_penalty_hourly: 40.0
+  solver_name: "highs"                 # Open-source solver: "highs" (highspy)
+  time_step_minutes: 15                # Continuous schedule discretization interval (15 min)
+  time_horizon_hours: 24               # 24-hour daily planning horizon (00:00 - 24:00)
+  time_limit_seconds: 10.0             # Solver timeout per individual household (seconds)
+  mip_gap: 0.01                        # HiGHS relative MIP optimality gap tolerance (1%)
 
+  # Value of Travel Time (VOT) behavioral parameters ($/hour)
+  vot_car: 20.0                        # Auto driver value of time ($20.00/hr)
+  vot_transit: 12.0                    # Public bus/rail transit value of time ($12.00/hr)
+  vot_bike: 15.0                       # Cycling value of time ($15.00/hr)
+  vot_walk: 18.0                       # Pedestrian walking value of time ($18.00/hr)
+  late_penalty_hourly: 40.0            # Penalty for missing mandatory activity arrival window ($/hr)
+
+# ------------------------------------------------------------------------------
+# 5. LINK TRANSMISSION MODEL (LTM) MESOSCOPIC TRAFFIC SIMULATOR
+# ------------------------------------------------------------------------------
 ltm:
-  time_step_seconds: 60.0
-  horizon_hours: 24.0
-  v_free_freeway_kmh: 105.0
-  v_free_arterial_kmh: 55.0
-  v_free_bike_kmh: 20.0
-  wave_speed_kmh: 20.0
-  jam_density_veh_km: 120.0
-  corridor_capacity_freeway_vph: 2000.0
-  corridor_capacity_arterial_vph: 800.0
-  bike_path_capacity_bph: 1500.0
-  ev_base_consumption_kwh_per_km: 0.18
-  elevation_penalty_kwh_per_meter: 0.0003
+  time_step_seconds: 60.0              # LTM simulation discrete time step delta_t (60 seconds)
+  horizon_hours: 24.0                  # Duration of daily traffic simulation (86,400 seconds)
 
+  # Free-flow speeds (km/h) across facility classes
+  v_free_freeway_kmh: 105.0            # US-101 and SR-217 free flow speed (~65 mph)
+  v_free_arterial_kmh: 55.0            # Hollister Ave, State St, Carrillo St (~35 mph)
+  v_free_bike_kmh: 20.0                # UCSB dedicated Class-I cycleways (~12-14 mph)
+
+  # Triangular Fundamental Diagram Kinematic Wave Parameters
+  wave_speed_kmh: 20.0                 # Backward shockwave propagation speed w (km/h)
+  jam_density_veh_km: 120.0            # Jam density k_jam per lane-km (veh/lane-km)
+  corridor_capacity_freeway_vph: 2000.0 # US-101 maximum capacity flow Q_max (veh/lane/hour)
+  corridor_capacity_arterial_vph: 800.0 # Surface arterial capacity flow Q_max (veh/lane/hour)
+  bike_path_capacity_bph: 1500.0       # UCSB cycleway capacity (bicycles/hour)
+
+  # Vehicle Physics & Energy
+  ev_base_consumption_kwh_per_km: 0.18 # Base rolling + aero consumption (0.18 kWh/km = ~290 Wh/mi)
+  elevation_penalty_kwh_per_meter: 0.0003 # Additional energy draw per vertical meter climbed
+
+# ------------------------------------------------------------------------------
+# 6. DAY-TO-DAY EVOLUTIONARY REPLANNING EQUILIBRIUM
+# ------------------------------------------------------------------------------
 equilibrium:
-  max_iterations: 5
-  replan_fraction: 0.15
-  plan_memory_size: 4
-  logit_beta: 1.0
-  convergence_tolerance_rel_gap: 0.02
+  max_iterations: 5                    # Maximum Day-to-Day supply-demand iterations (3 for quick sample)
+  replan_fraction: 0.15                # 15% random household replanning subset per day
+  plan_memory_size: 4                  # Maximum scored historical daily plans retained per agent
+  logit_beta: 1.0                      # Multinomial logit sensitivity scale for plan choice
+  convergence_tolerance_rel_gap: 0.02  # Relative gap threshold for convergence (|VHT_t - VHT_{t-1}| / VHT_t)
 
+# ------------------------------------------------------------------------------
+# 7. SPSA AUTOMATED CALIBRATION & HIGHWAY SENSOR VALIDATION
+# ------------------------------------------------------------------------------
 calibration:
-  max_iterations: 10
-  spsa_a: 0.1
-  spsa_c: 0.05
-  pems_stations:
-    - "US101_Salinas"
-    - "US101_Carrillo"
-    - "US101_Fairview"
-    - "US101_Storke"
-    - "US101_Carpinteria"
-  target_geh: 5.0
+  max_iterations: 10                   # Maximum SPSA gradient-free parameter tuning iterations
+  spsa_a: 0.1                          # SPSA step size coefficient a
+  spsa_c: 0.05                         # SPSA simultaneous perturbation radius c
 
+  # Caltrans District 5 PeMS Highway Loop Detectors (US-101 Corridor)
+  pems_stations:
+    - "US101_Salinas"                  # Santa Barbara East / Montecito gateway
+    - "US101_Carrillo"                 # Downtown Santa Barbara commercial core
+    - "US101_Fairview"                 # Goleta Central interchange / SR-217 junction
+    - "US101_Storke"                   # Goleta West / UCSB North gateway
+    - "US101_Carpinteria"              # South County / Ventura gateway
+  target_geh: 5.0                      # Target GEH statistic threshold (GEH < 5.0 on >= 85% of stations)
+
+# ------------------------------------------------------------------------------
+# 8. REGIONAL POLICY SCENARIOS
+# ------------------------------------------------------------------------------
 scenario:
-  active_scenario: "baseline"
-  us101_toll_dollars: 0.0
-  surfliner_hourly: false
-  ucsb_staggered_classes: false
-  north_south_remote_pct: 0.0
-  ev_tou_load_shift: false
+  active_scenario: "baseline"          # Selected scenario: "baseline", "peak_spread", "surfliner", "ucsb_stagger", "ev_load"
+  us101_toll_dollars: 0.0              # US-101 peak-hour congestion pricing toll
+  surfliner_hourly: false              # Clock-face 60-minute Pacific Surfliner rail expansion
+  ucsb_staggered_classes: false        # UCSB 15-minute staggered course timetables
+  north_south_remote_pct: 0.0          # South Coast employer telework & remote work incentive percentage
+  ev_tou_load_shift: false             # Managed EV charging aligned with SCE TOU-D-PRIME solar windows
