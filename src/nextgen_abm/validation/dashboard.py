@@ -78,6 +78,9 @@ class DashboardRenderer:
             return [168, 85, 247, 220]         # Violet
 
         od_flows["color"] = od_flows["purpose"].apply(_get_purpose_color)
+        od_flows["stroke_width"] = od_flows["volume"].apply(
+            lambda v: float(max(3.0, min(14.0, v * 1.5)))
+        )
         od_flows["name"] = od_flows.apply(
             lambda r: f"{r['from_name']} ➔ {r['to_name']} ({r['purpose']})", axis=1
         )
@@ -92,7 +95,7 @@ class DashboardRenderer:
                 "lon": float(first["lon"]),
                 "lat": float(first["lat"]),
                 "visits": visits,
-                "radius": max(120, min(500, visits * 20)),
+                "radius": float(max(120, min(500, visits * 20))),
             })
         hubs_df = pd.DataFrame(hubs)
 
@@ -115,11 +118,11 @@ class DashboardRenderer:
         if od_flows is None:
             # Default representative regional flows (e.g. Santa Maria -> Goleta/SB)
             od_flows = pd.DataFrame([
-                {"name": "Santa Maria -> Goleta Tech", "from_name": "Santa Maria", "to_name": "Goleta Tech", "from_lon": -120.435, "from_lat": 34.935, "to_lon": -119.833, "to_lat": 34.435, "volume": 6200, "color": [240, 80, 50, 220], "purpose": "work"},
-                {"name": "Santa Maria -> Downtown SB", "from_name": "Santa Maria", "to_name": "Downtown SB", "from_lon": -120.435, "from_lat": 34.935, "to_lon": -119.699, "to_lat": 34.419, "volume": 5800, "color": [240, 80, 50, 220], "purpose": "work"},
-                {"name": "Lompoc -> Goleta Tech", "from_name": "Lompoc", "to_name": "Goleta Tech", "from_lon": -120.455, "from_lat": 34.640, "to_lon": -119.833, "to_lat": 34.435, "volume": 2400, "color": [255, 150, 0, 220], "purpose": "work"},
-                {"name": "Goleta -> Downtown SB", "from_name": "Goleta", "to_name": "Downtown SB", "from_lon": -119.833, "from_lat": 34.435, "to_lon": -119.699, "to_lat": 34.419, "volume": 4200, "color": [40, 160, 220, 220], "purpose": "work"},
-                {"name": "Isla Vista -> UCSB Campus", "from_name": "Isla Vista", "to_name": "UCSB Campus", "from_lon": -119.856, "from_lat": 34.411, "to_lon": -119.845, "to_lat": 34.415, "volume": 12000, "color": [16, 185, 129, 220], "purpose": "school"},
+                {"name": "Santa Maria -> Goleta Tech", "from_name": "Santa Maria", "to_name": "Goleta Tech", "from_lon": -120.435, "from_lat": 34.935, "to_lon": -119.833, "to_lat": 34.435, "volume": 6200, "stroke_width": 12.0, "color": [240, 80, 50, 220], "purpose": "work"},
+                {"name": "Santa Maria -> Downtown SB", "from_name": "Santa Maria", "to_name": "Downtown SB", "from_lon": -120.435, "from_lat": 34.935, "to_lon": -119.699, "to_lat": 34.419, "volume": 5800, "stroke_width": 11.0, "color": [240, 80, 50, 220], "purpose": "work"},
+                {"name": "Lompoc -> Goleta Tech", "from_name": "Lompoc", "to_name": "Goleta Tech", "from_lon": -120.455, "from_lat": 34.640, "to_lon": -119.833, "to_lat": 34.435, "volume": 2400, "stroke_width": 6.0, "color": [255, 150, 0, 220], "purpose": "work"},
+                {"name": "Goleta -> Downtown SB", "from_name": "Goleta", "to_name": "Downtown SB", "from_lon": -119.833, "from_lat": 34.435, "to_lon": -119.699, "to_lat": 34.419, "volume": 4200, "stroke_width": 9.0, "color": [40, 160, 220, 220], "purpose": "work"},
+                {"name": "Isla Vista -> UCSB Campus", "from_name": "Isla Vista", "to_name": "UCSB Campus", "from_lon": -119.856, "from_lat": 34.411, "to_lon": -119.845, "to_lat": 34.415, "volume": 12000, "stroke_width": 14.0, "color": [16, 185, 129, 220], "purpose": "school"},
             ])
         elif "from_lon" not in od_flows.columns and ("person_id" in od_flows.columns or "act_id" in od_flows.columns):
             # Input is raw schedule data; convert to OD flows & hubs
@@ -127,12 +130,15 @@ class DashboardRenderer:
             if od_flows.empty:
                 return self.render_od_flow_map(od_flows=None, filename=filename)
 
-        # Adaptive stroke width scaling
-        max_vol = float(od_flows["volume"].max()) if not od_flows.empty and "volume" in od_flows.columns else 1.0
-        if max_vol <= 50.0:
-            width_expr = "max(3, volume * 1.5)"
-        else:
-            width_expr = "max(2, volume / 400)"
+        # Ensure stroke_width column exists to avoid dynamic JS expressions
+        if "stroke_width" not in od_flows.columns:
+            if "volume" in od_flows.columns:
+                max_vol = float(od_flows["volume"].max())
+                od_flows["stroke_width"] = od_flows["volume"].apply(
+                    lambda v: float(max(3.0, min(14.0, v * 1.5 if max_vol <= 50.0 else v / 400.0)))
+                )
+            else:
+                od_flows["stroke_width"] = 3.0
 
         layers = []
 
@@ -160,7 +166,7 @@ class DashboardRenderer:
             get_target_position=["to_lon", "to_lat"],
             get_source_color="color",
             get_target_color="color",
-            get_width=width_expr,
+            get_width="stroke_width",
             pickable=True,
             auto_highlight=True,
         )
@@ -359,6 +365,11 @@ class DashboardRenderer:
         </div>
         """
 
+        if "</head>" in content and "mapbox-gl.css" not in content:
+            content = content.replace(
+                "</head>",
+                '    <link rel="stylesheet" href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.13.0/mapbox-gl.css" />\n  </head>',
+            )
         if "</body>" in content:
-            new_content = content.replace("</body>", f"{hud_html}\n</body>")
-            html_path.write_text(new_content, encoding="utf-8")
+            content = content.replace("</body>", f"{hud_html}\n</body>")
+        html_path.write_text(content, encoding="utf-8")
