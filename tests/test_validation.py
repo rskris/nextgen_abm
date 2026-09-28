@@ -51,12 +51,24 @@ def test_pems_traffic_volume_validation():
 
 
 def test_pydeck_dashboard_rendering(tmp_path: Path):
+    import pandas as pd
     renderer = DashboardRenderer(output_dir=tmp_path)
 
-    # 1. Render OD flows map
+    # 1. Render OD flows map (default representative)
     od_html_path = renderer.render_od_flow_map(filename="test_od_flow.html")
     assert od_html_path.exists()
     assert od_html_path.stat().st_size > 1000
+
+    # 1b. Render flow deck from raw schedules DataFrame
+    sched_df = pd.DataFrame([
+        {"household_id": "hh1", "person_id": "p1", "act_id": "a1", "act_type": "home", "location_id": "home_loc", "lon": -119.82, "lat": 34.43, "start_hour": 6.0, "end_hour": 8.0, "duration_hours": 2.0},
+        {"household_id": "hh1", "person_id": "p1", "act_id": "a2", "act_type": "work", "location_id": "work_loc", "lon": -119.70, "lat": 34.42, "start_hour": 8.5, "end_hour": 17.0, "duration_hours": 8.5},
+        {"household_id": "hh1", "person_id": "p1", "act_id": "a3", "act_type": "home", "location_id": "home_loc", "lon": -119.82, "lat": 34.43, "start_hour": 17.5, "end_hour": 24.0, "duration_hours": 6.5},
+    ])
+    sched_html_path = renderer.render_flow_deck(flows_df=sched_df, filename="test_sched_deck.html", metrics_summary={"total_vht_hours": 10.5}, geh_scores={"stn1": 2.1})
+    assert sched_html_path.exists()
+    assert "deck-hud-overlay" in sched_html_path.read_text(encoding="utf-8")
+    assert sched_html_path.stat().st_size > 1000
 
     # 2. Render Building footprints map
     client = OvertureClient()

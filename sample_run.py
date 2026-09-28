@@ -299,7 +299,19 @@ def main() -> int:
 
     # 4. Interactive 3D PyDeck Dashboard HTML
     renderer = DashboardRenderer(output_dir=out_dir)
-    dashboard_path = renderer.render_flow_deck(flows_df=sched_df, filename="dashboard.html")
+    dashboard_path = renderer.render_flow_deck(
+        flows_df=sched_df,
+        filename="dashboard.html",
+        metrics_summary={
+            "total_trips": last_metric.total_trips,
+            "simulated_corridor_flow": simulated_flow,
+            "avg_travel_time_min": last_metric.avg_travel_time_min,
+            "total_vht_hours": last_metric.total_vht_hours,
+            "sample_fraction": cfg.population.sample_fraction,
+            "households_count": len(households),
+        },
+        geh_scores=geh_scores,
+    )
 
     total_time = time.perf_counter() - total_start
     print(f"  • {metrics_csv}")
