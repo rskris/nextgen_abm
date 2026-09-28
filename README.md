@@ -28,21 +28,21 @@ Traditional 4-step and legacy Activity-Based Models (ABMs) suffer from artificia
 
 ```mermaid
 flowchart TD
-    Config["Single Master Config (config.yaml)\nPercolates Downstream"] --> Ingestion["Spatial & Population Ingestion\n(Overture, ACS PUMS, LODES, GTFS)"]
-    Config --> HH_MILP["Unified Joint Household MILP (HiGHS)\nSimultaneous Multi-Agent Optimization"]
-    Config --> MultiModalNet["Hierarchical Multi-Modal LTM Network\n(Freeways, Arterials, MTD Bus, UCSB Bike Cells)"]
-    Config --> MesoLTM["Native Python LTM Meso-Simulator\n(Kinematic Wave, Cumulative Flows, Energy)"]
-    Config --> Equilibrium["Day-to-Day Evolutionary Replanning\n(MATSim-Style 10-20% Re-solving & Memory)"]
-    Config --> Calibration["Automated SPSA Calibration Loop\n(Caltrans PeMS GEH < 5 & CHTS Fit)"]
+    Config["Single Master Config (config.yaml)<br/>Percolates Downstream"] --> Ingestion["Spatial and Population Ingestion<br/>(Overture, ACS PUMS, LODES, GTFS)"]
+    Config --> HH_MILP["Unified Joint Household MILP (HiGHS)<br/>Simultaneous Multi-Agent Optimization"]
+    Config --> MultiModalNet["Hierarchical Multi-Modal LTM Network<br/>(Freeways, Arterials, MTD Bus, UCSB Bike Cells)"]
+    Config --> MesoLTM["Native Python LTM Meso-Simulator<br/>(Kinematic Wave, Cumulative Flows, Energy)"]
+    Config --> Equilibrium["Day-to-Day Evolutionary Replanning<br/>(MATSim-Style 10-20% Re-solving & Memory)"]
+    Config --> Calibration["Automated SPSA Calibration Loop<br/>(Caltrans PeMS GEH under 5 and CHTS Fit)"]
 
     Ingestion --> HH_MILP
     HH_MILP -->|"Daily Multi-Agent Plans"| Equilibrium
     Equilibrium -->|"Network Assignment"| MesoLTM
     MultiModalNet --> MesoLTM
-    MesoLTM -->|"Experienced Dynamic Link Delays & Energy"| Equilibrium
+    MesoLTM -->|"Experienced Dynamic Link Delays and Energy"| Equilibrium
     Equilibrium -->|"Replanning Subset (15%)"| HH_MILP
     MesoLTM -->|"Simulated Hourly Counts"| Calibration
-    Calibration -->|"Tuned Utility & Capacity Parameters"| Config
+    Calibration -->|"Tuned Utility and Capacity Parameters"| Config
 ```
 
 ---

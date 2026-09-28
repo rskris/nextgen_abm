@@ -30,51 +30,51 @@ Legacy transportation planning models (the 1950s 4-step framework and early 2000
 
 ```mermaid
 flowchart TD
-    subgraph DataIngestion ["1. Data Ingestion & Spatial Preprocessing"]
-        OM["Overture Maps GeoParquet\n(~140k Building Footprints & POIs)"] --> DuckDB["DuckDB Spatial Engine\n(BBox, WGS84, Area, Height)"]
-        Census["US Census ACS PUMS\n(PUMA 08301 & 08302)"] --> Synthesizer["Demographic Synthesizer\n(IPU / Marginal Control)"]
-        LODES["LEHD LODES OD Flows\n(Census Block Resolution)"] --> JobAnchor["Workplace Gravity Anchor"]
-        GTFS["Regional GTFS\n(SBMTD, Surfliner, Clean Air)"] --> SkimMatrix["Transit Timetable & Fare Skims"]
-        DEM["USGS 3DEP\n(10m Elevation Model)"] --> SlopeRouter["Grade-Aware Multi-Scale Router"]
+    subgraph DataIngestion ["1. Data Ingestion and Spatial Preprocessing"]
+        OM["Overture Maps GeoParquet<br/>(~140k Building Footprints and POIs)"] --> DuckDB["DuckDB Spatial Engine<br/>(BBox, WGS84, Area, Height)"]
+        Census["US Census ACS PUMS<br/>(PUMA 08301 and 08302)"] --> Synthesizer["Demographic Synthesizer<br/>(IPU / Marginal Control)"]
+        LODES["LEHD LODES OD Flows<br/>(Census Block Resolution)"] --> JobAnchor["Workplace Gravity Anchor"]
+        GTFS["Regional GTFS<br/>(SBMTD, Surfliner, Clean Air)"] --> SkimMatrix["Transit Timetable and Fare Skims"]
+        DEM["USGS 3DEP<br/>(10m Elevation Model)"] --> SlopeRouter["Grade-Aware Multi-Scale Router"]
     end
 
     subgraph LifeHistorySubsystem ["2. Dynamic Life-History Microsimulation"]
         Synthesizer --> PersistInit["Persistent Agent Initializer"]
-        PersistInit --> LifeLoop["Annual Hazard Transitions\n• Graduation & Maturation\n• Employment & Telework Shift\n• Residential Relocation\n• EV Acquisition / ICE Shedding"]
+        PersistInit --> LifeLoop["Annual Hazard Transitions<br/>- Graduation and Maturation<br/>- Employment and Telework Shift<br/>- Residential Relocation<br/>- EV Fleet Evolution"]
     end
 
     subgraph HouseholdScheduler ["3. Unified Joint Household MILP (HiGHS)"]
         LifeLoop --> AgendaGen["Daily Member Agendas"]
         DuckDB --> SpacePruner["Space-Time Prism Pruner"]
         SpacePruner --> AgendaGen
-        AgendaGen --> JointMILP["Unified Household MILP Solver\n• Simultaneous Start/End/Mode/Dest\n• Physical Vehicle Conservation\n• School Escort Synchronization\n• Shared Family Meals"]
+        AgendaGen --> JointMILP["Unified Household MILP Solver<br/>- Simultaneous Start/End/Mode/Dest<br/>- Physical Vehicle Conservation<br/>- School Escort Synchronization<br/>- Shared Family Meals"]
         SlopeRouter --> JointMILP
         SkimMatrix --> JointMILP
     end
 
     subgraph DynamicTraffic ["4. Native LTM Kinematic Wave Traffic Simulator"]
         JointMILP --> NetworkTrips["Trip Vehicle Trajectories"]
-        HierNet["Hierarchical Multi-Modal Network\n(Freeways, Arterials, Bike Cells)"] --> MesoLTM["LTM Mesoscopic Engine\n• Triangular Fundamental Diagrams\n• Sending S_a(t) & Receiving R_a(t)\n• Cumulative N_up / N_down Flows\n• Shockwaves & Queue Spillbacks\n• Continuous EV Battery Physics"]
+        HierNet["Hierarchical Multi-Modal Network<br/>(Freeways, Arterials, Bike Cells)"] --> MesoLTM["LTM Mesoscopic Engine<br/>- Triangular Fundamental Diagrams<br/>- Sending S_a(t) and Receiving R_a(t)<br/>- Cumulative Inflow/Outflow Curves<br/>- Shockwaves and Queue Spillbacks<br/>- Continuous EV Battery Physics"]
         NetworkTrips --> MesoLTM
     end
 
     subgraph EquilibriumConvergence ["5. Day-to-Day Evolutionary Replanning"]
-        MesoLTM --> ExperiencedSkims["Dynamic Travel Times & Energy Consumption"]
-        ExperiencedSkims --> PlanMemory["Household Plan Memory & Scoring"]
+        MesoLTM --> ExperiencedSkims["Dynamic Travel Times and Energy"]
+        ExperiencedSkims --> PlanMemory["Household Plan Memory and Scoring"]
         PlanMemory --> LogitSelect["Multinomial Logit Plan Selector"]
-        LogitSelect --> ConvergeCheck{"Relative Gap < 1% ?"}
-        ConvergeCheck -- No: Replanning Subset (15%) --> JointMILP
-        ConvergeCheck -- Yes --> FinalArtifacts["Model Convergence"]
+        LogitSelect --> ConvergeCheck{"Relative Gap under 1%?"}
+        ConvergeCheck -->|"No: Replanning (15%)"| JointMILP
+        ConvergeCheck -->|"Yes: Converged"| FinalArtifacts["Model Convergence"]
     end
 
-    subgraph ValidationCalibration ["6. Automated SPSA Calibration & Outputs"]
-        MesoLTM --> PeMSCompare["Caltrans PeMS GEH Validation\n(5 Stations on US-101 Corridor)"]
+    subgraph ValidationCalibration ["6. Automated SPSA Calibration and Outputs"]
+        MesoLTM --> PeMSCompare["Caltrans PeMS GEH Validation<br/>(5 Stations on US-101 Corridor)"]
         CHTS["CHTS Travel Survey"] --> DurCompare["Duration Distribution Fit"]
-        PeMSCompare --> SPSA["SPSA Parameter Tuner\n(Simultaneous Perturbation)"]
+        PeMSCompare --> SPSA["SPSA Parameter Tuner<br/>(Simultaneous Perturbation)"]
         DurCompare --> SPSA
-        SPSA -. Updates Utility & Capacities .-> JointMILP
-        FinalArtifacts --> DeckGL["3D GPU Interactive Dashboard\n(PyDeck / Deck.gl)"]
-        FinalArtifacts --> Parquet["Parquet Schedules & CSV Metrics"]
+        SPSA -.->|"Updates Utility and Capacities"| JointMILP
+        FinalArtifacts --> DeckGL["3D GPU Interactive Dashboard<br/>(PyDeck / Deck.gl)"]
+        FinalArtifacts --> Parquet["Parquet Schedules and CSV Metrics"]
     end
 ```
 
@@ -106,10 +106,11 @@ flowchart TD
 ### 2.2 Data Flow Architecture
 ```mermaid
 sequenceDiagram
-    participant User as CLI / Script
-    participant CLI as CLI Controller (cli.py)
-    participant Config as MasterConfig (config.py)
-    participant Sync as DataSyncManager (data_sync.py)
+    autonumber
+    actor User as Analyst / CLI
+    participant CLI as CLI Controller
+    participant Config as MasterConfig
+    participant Sync as DataSyncManager
     participant Pipeline as NextGenPipeline
 
     User->>CLI: nextgen-abm run --sample 0.10 --workers 12
@@ -118,7 +119,7 @@ sequenceDiagram
     CLI->>Sync: verify_or_sync_cache()
     Sync-->>CLI: Cache verified (Parquet / GeoJSON ready)
     CLI->>Pipeline: initialize(config, workers=12)
-    Pipeline-->>User: Simulation Results & Artifacts
+    Pipeline-->>User: Simulation Results and Artifacts
 ```
 
 ---
@@ -191,10 +192,10 @@ Maintains a 21-node, 42-directional-link regional graph capturing:
 - **Transit Corridors**: Santa Barbara MTD bus lines, Clean Air Express regional coach, and Amtrak Pacific Surfliner rail tracks.
 
 ```mermaid
-graph LR
+flowchart LR
     subgraph WestGoleta ["Goleta / Tech Corridor"]
-        N_Storke["Storke & Hollister"]
-        N_HollisterFairview["Hollister & Fairview"]
+        N_Storke["Storke and Hollister"]
+        N_HollisterFairview["Hollister and Fairview"]
         N_US101_Storke["US-101 / Storke Interchange"]
         N_US101_Fairview["US-101 / Fairview Interchange"]
     end
@@ -206,21 +207,21 @@ graph LR
     end
 
     subgraph SantaBarbara ["Downtown Santa Barbara / Waterfront"]
-        N_Carrillo["State St & Carrillo St"]
-        N_Cabrillo["Waterfront & Cabrillo Blvd"]
+        N_Carrillo["State St and Carrillo St"]
+        N_Cabrillo["Waterfront and Cabrillo Blvd"]
         N_US101_Carrillo["US-101 / Carrillo Interchange"]
         N_US101_Salinas["US-101 / Salinas Interchange"]
     end
 
-    N_Storke ===|Arterial: Hollister| N_HollisterFairview
-    N_HollisterFairview ===|US-101 Southbound| N_US101_Fairview
-    N_IV ===|Bike Class-I / Pardall Tunnel| N_UCSB
-    N_UCSB ===|SR-217 Expressway| N_SR217
-    N_SR217 ===|Expressway Merge| N_US101_Fairview
-    N_US101_Fairview ===|US-101 Regional Trunk| N_US101_Carrillo
-    N_US101_Carrillo ===|Arterial Ramp| N_Carrillo
-    N_Carrillo ===|Downtown Spine| N_Cabrillo
-    N_US101_Carrillo ===|US-101 Southbound| N_US101_Salinas
+    N_Storke -->|"Arterial: Hollister"| N_HollisterFairview
+    N_HollisterFairview -->|"US-101 Southbound"| N_US101_Fairview
+    N_IV -->|"Bike Class-I: Pardall Tunnel"| N_UCSB
+    N_UCSB -->|"SR-217 Expressway"| N_SR217
+    N_SR217 -->|"Expressway Merge"| N_US101_Fairview
+    N_US101_Fairview -->|"US-101 Regional Trunk"| N_US101_Carrillo
+    N_US101_Carrillo -->|"Arterial Ramp"| N_Carrillo
+    N_Carrillo -->|"Downtown Spine"| N_Cabrillo
+    N_US101_Carrillo -->|"US-101 Southbound"| N_US101_Salinas
 ```
 
 ---
@@ -294,12 +295,17 @@ Locations outside this bounding ellipse are mathematically unreachable and are s
 
 ```mermaid
 flowchart LR
-    Origin["Anchor Origin (Home)\nLocation x_i, End t_i"] --> Candidate["Candidate Location x_k\nMin Duration d_min"]
-    Candidate --> Destination["Anchor Destination (Work)\nLocation x_j, Start t_j"]
+    Origin["Anchor Origin: Home<br/>Location x_i, End t_i"] --> Candidate["Candidate Location x_k<br/>Min Duration d_min"]
+    Candidate --> Destination["Anchor Destination: Work<br/>Location x_j, Start t_j"]
+    
+    Candidate -.->|"Evaluate Feasibility"| Check
     
     subgraph FeasibilityCheck ["Space-Time Prism Invariant"]
-        Check["tt(x_i, x_k) + d_min + tt(x_k, x_j) <= t_j - t_i"]
+        Check["tt(x_i, x_k) + d_min + tt(x_k, x_j) &le; t_j - t_i"]
     end
+    
+    Check -->|"Feasible"| Keep["Retain in Choice Set"]
+    Check -->|"Infeasible"| Prune["Prune Opportunity"]
 ```
 
 #### B. Continuous 24-Hour Non-Hierarchical Daily Schedule MILP
@@ -353,14 +359,18 @@ The household owns a finite set of physical vehicles $\mathcal{V} = \{v_1, v_2, 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Home: Vehicle stationed at Home (00:00)
+    direction TB
+    [*] --> Home: Stationed at Home (00:00)
     Home --> Work: Parent 1 drives to Work (07:30 - 08:00)
-    Work --> Work: Vehicle locked at Work parking (08:00 - 17:00)
-    note right of Work: Parent 2 CANNOT use this vehicle\nduring this time window!
-    Work --> Home: Parent 1 drives to Home (17:00 - 17:30)
-    Home --> Soccer: Parent 2 drives child to Soccer (18:00 - 18:15)
-    Soccer --> Home: Parent 2 returns Home (19:30 - 19:45)
-    Home --> [*]: Vehicle overnight charging
+    Work --> Work: Locked at Work parking (08:00 - 17:00)
+    note right of Work
+        Parent 2 cannot use this vehicle
+        during Parent 1 work window
+    end note
+    Work --> Home: Parent 1 returns Home (17:00 - 17:30)
+    Home --> Activity: Parent 2 drives child (18:00 - 18:15)
+    Activity --> Home: Parent 2 returns Home (19:30 - 19:45)
+    Home --> [*]: Overnight Level-2 Charging (20:00 - 06:00)
 ```
 
 ##### Mutual Exclusion Constraint:
@@ -435,21 +445,22 @@ Coordinates dynamic supply-demand equilibrium across successive model iterations
 ```mermaid
 sequenceDiagram
     autonumber
+    actor User as Planner / System
+    participant Engine as Day-to-Day Engine
     participant Pop as Synthetic Population
     participant MILP as Unified Household MILP
     participant Meso as LTM Meso-Simulator
-    participant Engine as Day-to-Day Engine
 
-    loop Iteration 1 to Max_Iterations
+    loop Iteration 1 to Max Iterations
         Engine->>Pop: Select Active Plan from Memory (Logit)
-        Pop->>Meso: Inject Vehicle Trips & Departure Times
-        Meso->>Meso: Kinematic Wave Propagation & Queue Spillback
-        Meso-->>Engine: Experienced Dynamic Link Delays & VHT
+        Pop->>Meso: Inject Vehicle Trips and Departure Times
+        Meso->>Meso: Kinematic Wave Propagation and Queue Spillback
+        Meso-->>Engine: Experienced Dynamic Link Delays and VHT
         Engine->>Pop: Score Plan: Score = Utility - TravelDelayPenalty
         Engine->>Engine: Calculate Relative Gap
-        alt Relative Gap < Tolerance (1%)
+        alt Relative Gap is below Tolerance (1%)
             Engine-->>User: Supply-Demand Equilibrium Reached
-        else Relative Gap >= Tolerance
+        else Relative Gap is above Tolerance
             Engine->>Pop: Select 15% Household Replanning Subset
             Pop->>MILP: Re-solve Household Schedules with New Skims
             MILP-->>Pop: Add New Plan to Agent Memory Pool (Max 4)
